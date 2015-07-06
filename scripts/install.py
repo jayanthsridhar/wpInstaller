@@ -1,27 +1,45 @@
-import os, sys
+import os, sys, random, string, urllib2
+from wpconfig import config
 
-def writeConfig(fileName, findText, replaceText) :
-	tempFile = open( fileName, 'r+' )
-	for line in fileinput.input( fileName ):
-    		if findText in line :
-        		tempFile.write( line.replace( findText, replaceText ) )
-	tempFile.close()
+def secureInstall(targetDir) :
+	for fileName in ['license.txt', 'readme.html', 'wp-config-sample.php'] :
+		if os.path.exists("%s/%s"%(targetDir, fileName)) :
+			os.system("rm %s/%s"%(targetDir, fileName))
+
+
+def tidyUp(projectName) :
+	os.system("rm latest.tar.gz")
+	os.system("rm -rf %s"%projectName)
+
+def createDirectory(dirPath) :
+	if not os.path.exists(dirPath) :
+		os.system("mkdir %s"%dirPath)
+	else :
+		os.system("rm -rf %s/"%dirPath)
+		os.system("mkdir %s"%dirPath)
 
 def wpInstall(projectName, targetDir) :
-	#os.system("wget -q https://wordpress.org/latest.tar.gz")
-	os.system("mkdir %s"%projectName)
-	os.system("tar -xzvf latest.tar.gz -C %s"%projectName)
-	#os.system("cd %s/wordpress/"%projectName)
-	os.system("mv %s/wordpress/wp-config-sample.php %s/wordpress/wp-config.php"%(projectName,projectName))
-	siteTitle = raw_input("Enter Site Title: ")	
-	siteURL = raw_input("Enter Site URL: ")
+	os.system("wget -q https://wordpress.org/latest.tar.gz")
+	createDirectory(projectName)
+	os.system("tar -xzf latest.tar.gz -C %s"%projectName)
+	os.system("cd %s/wordpress/"%projectName)
+	#os.system("mv %s/wordpress/wp-config-sample.php %s/wordpress/wp-config.php"%(projectName,projectName))
 	siteDatabase = raw_input("Enter Database Name:\n To create one, press enter ")
-	siteDBUser = raw_input("Enter Database Username: ");
-	siteDBPass = raw_input("Enter Database Password: ");
+	siteDBUser = raw_input("Enter Database Username: ")
+	siteDBPass = raw_input("Enter Database Password: ")
+	siteTBLPrefix = "".join(random.choice(string.lowercase) for x in range(4))
+	siteTBLPrefix = "wp_"+siteTBLPrefix+"_"
 
-	print siteTitle;
+	response = urllib2.urlopen("https://api.wordpress.org/secret-key/1.1/salt/")
+	siteSalt = response.read()
+	configFile = open("%s/wordpress/wp-config.php"%projectName,"w")
+	configString = config["wp_config"]%(siteDatabase, siteDBUser, siteDBPass, siteTBLPrefix, siteSalt)
+	configFile.write(configString)
+	configFile.close()
+	createDirectory(targetDir)
 	os.system("mv %s/wordpress/* %s"%(projectName,targetDir))
-
+	secureInstall(targetDir)
+	tidyUp(projectName)
 
 def main(argv):
 	projectName = argv[0]
@@ -31,4 +49,3 @@ def main(argv):
 
 if __name__ == "__main__":
 	sys.exit(main(sys.argv[1:]))
-
